@@ -26,6 +26,14 @@ class MainActivity : ComponentActivity() {
                 WristPassApp(viewModel)
             }
         }
+        if (BuildConfig.DEBUG) {
+            viewModel.debugAutoLogin(
+                intent.getStringExtra("wp_server"),
+                intent.getStringExtra("wp_email"),
+                intent.getStringExtra("wp_password"),
+                intent.getStringExtra("wp_2fa"),
+            )
+        }
     }
 
     /**

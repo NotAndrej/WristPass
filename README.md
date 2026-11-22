@@ -98,22 +98,33 @@ drives the TOTP countdown while the item-detail screen is open; it is cancelled
 as soon as the screen leaves the composition (which happens on background,
 because the app re-locks).
 
-Measured on the Xiaomi Watch 2 (Wear OS 5):
+Measured on the Xiaomi Watch 2 (Wear OS 5, 512 mAh) with `dumpsys batterystats
+com.notandrej.wristpass` and `dumpsys cpuinfo`, over a 10-minute window in which
+the app was launched once and then sent to the background:
 
-| Scenario | Result |
-|----------|--------|
-| Installed, launched once, then left alone for ~10 min | see `dumpsys batterystats` note below |
-| Wake locks held while backgrounded | 0 |
+| Metric (UID 10056, `u0a56`) | Before | After 10 min backgrounded | Delta |
+|-----------------------------|--------|---------------------------|-------|
+| Total estimated power | 3.64 mAh | 3.92 mAh | +0.28 mAh (one foreground launch + 5 s of screen) |
+| `cpu:bg` (background CPU) | 0.208 mAh | 0.208 mAh | **0 mAh/h** |
+| `cpu:cached` | 0.285 mAh | 0.365 mAh | +0.08 mAh over 10 min (≈0.48 mAh/h, OS keeping the cached process) |
+| Held wake locks | 0 | 0 | — |
+| Scheduled alarms | 0 | 0 | — |
+| Foreground services | 0 | 0 | — |
+
+The `cpu:bg` figure not moving at all is the point: once the app leaves the
+screen there is no work being scheduled. For calibration, a VPN on this same
+watch holds a foreground service at ~3.5 mAh/h idle, and a debug helper holds a
+`PARTIAL_WAKE_LOCK` forever; WristPass holds neither.
 
 Reproduce with:
 
 ```sh
-adb shell dumpsys batterystats --reset
-adb shell am start -n com.notandrej.wristpass/.MainActivity   # launch, then leave it
-adb shell input keyevent KEYCODE_HOME                          # background it
-# wait, then:
-adb shell dumpsys batterystats --uid $(adb shell dumpsys package com.notandrej.wristpass | grep -m1 userId= | tr -dc '0-9')
+adb shell dumpsys batterystats com.notandrej.wristpass   # "Estimated power use (mAh)" -> UID u0a56
+adb shell am start -n com.notandrej.wristpass/.MainActivity && adb shell input keyevent KEYCODE_HOME
+# wait, re-run the dumpsys command, diff the UID u0a56 line
 adb shell dumpsys cpuinfo | grep wristpass
+adb shell dumpsys power  | grep -c wristpass   # wake locks -> 0
+adb shell dumpsys alarm  | grep -c wristpass   # alarms    -> 0
 ```
 
 ## Install
@@ -139,6 +150,20 @@ run against API 34.
 The unit tests are not smoke tests: `CryptoVectorTest` decrypts a real item that a
 real Vaultwarden server produced, and `TotpTest` checks the published RFC 6238
 vectors for SHA-1, SHA-256 and SHA-512.
+
+There is also a **debug-only** intent hook so the login flow can be exercised on
+the watch without typing on a 466 px round screen:
+
+```sh
+adb shell am start -n com.notandrej.wristpass/.MainActivity \
+  --es wp_server http://192.168.1.179:18080 \
+  --es wp_email  watch@example.test \
+  --es wp_password 'test-password'
+```
+
+It is guarded by `BuildConfig.DEBUG`, so it is compiled out of every release
+build. Do not use a debug build as your daily driver: the password passed as an
+intent extra is visible to anything that can read the app's launch intent.
 
 > The constants in `CryptoVectorTest` are throwaway vectors captured from a
 > throwaway local Vaultwarden container (a made-up account and one fake "GitHub"

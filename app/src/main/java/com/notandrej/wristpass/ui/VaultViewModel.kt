@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.notandrej.wristpass.BuildConfig
 import com.notandrej.wristpass.crypto.Crypto
 import com.notandrej.wristpass.crypto.Totp
 import com.notandrej.wristpass.data.ApiException
@@ -159,6 +160,20 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(item: VaultItem) { selected = item }
     fun closeDetail() { selected = null }
+
+    /**
+     * Debug-only test hook: lets an on-device UI test drive the whole login via
+     * `am start --es wp_server ...` instead of typing on a 466px round screen.
+     * Inert in release builds because [BuildConfig.DEBUG] is false there.
+     */
+    fun debugAutoLogin(srv: String?, mail: String?, password: String?, code: String?) {
+        if (!BuildConfig.DEBUG) return
+        if (!srv.isNullOrBlank()) server = srv
+        if (!mail.isNullOrBlank()) email = mail
+        if (!password.isNullOrBlank()) masterPassword = password
+        if (!code.isNullOrBlank()) twoFactorCode = code
+        if (canSubmit) unlock()
+    }
 
     /** TOTP for an item, or null when it has no usable seed. */
     fun totpParams(item: VaultItem): Totp.Params? =
