@@ -140,6 +140,11 @@ The unit tests are not smoke tests: `CryptoVectorTest` decrypts a real item that
 real Vaultwarden server produced, and `TotpTest` checks the published RFC 6238
 vectors for SHA-1, SHA-256 and SHA-512.
 
+> The constants in `CryptoVectorTest` are throwaway vectors captured from a
+> throwaway local Vaultwarden container (a made-up account and one fake "GitHub"
+> login). They are committed on purpose so the decryption path can be tested
+> without a server. They are not, and never were, anyone's real credentials.
+
 Requires JDK 17+, and an Android SDK with the API 36 platform and build tools.
 
 ## Tech
